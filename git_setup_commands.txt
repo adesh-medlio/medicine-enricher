@@ -1,0 +1,33 @@
+# Git Setup Commands for Medicine Enricher Project
+
+# 1. First, create a new repository on GitHub.com
+#    - Go to https://github.com/new
+#    - Name: medicine-enricher (or your preferred name)
+#    - Don't initialize with README
+#    - Copy the repository URL
+
+# 2. Add the remote repository (replace with your actual URL)
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+
+# 3. Check if you have files to commit
+git status
+
+# 4. If you have new files, add them
+git add .
+
+# 5. Commit your changes
+git commit -m "Enhanced medicine enricher with manufacturer search support"
+
+# 6. Push to GitHub
+git push -u origin main
+
+# Alternative: If you get errors about branch names
+git branch -M main
+git push -u origin main
+
+# To check your remote configuration
+git remote -v
+
+# Example with actual repository URL:
+# git remote add origin https://github.com/adesh-shetty/medicine-enricher.git
+# git push -u origin main
