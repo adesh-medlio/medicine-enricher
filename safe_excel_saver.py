@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Safe Excel Saver - Prevents file corruption during saves
+Now with smart backup management!
 """
 
 import pandas as pd
@@ -9,13 +10,15 @@ import tempfile
 import shutil
 import time
 from datetime import datetime
+from smart_backup_manager import SmartBackupManager
 
 class SafeExcelSaver:
     """A safe Excel file saver that prevents corruption."""
     
-    def __init__(self, output_path):
+    def __init__(self, output_path, max_backups=3):
         self.output_path = output_path
         self.temp_dir = tempfile.mkdtemp()
+        self.backup_manager = SmartBackupManager(max_backups)
         
     def safe_save(self, df, progress_count=None):
         """
@@ -45,11 +48,13 @@ class SafeExcelSaver:
                 print(f"❌ Temporary file validation failed: {e}")
                 return False
             
-            # Create backup of existing file if it exists
+            # Create backup of existing file if it exists (with smart cleanup)
             if os.path.exists(self.output_path):
-                backup_path = self.output_path.replace('.xlsx', f'_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx')
-                shutil.copy2(self.output_path, backup_path)
-                print(f"📁 Backup created: {backup_path}")
+                backup_path = self.backup_manager.create_backup_with_cleanup(self.output_path)
+                if backup_path:
+                    print(f"📁 Smart backup created: {os.path.basename(backup_path)}")
+                else:
+                    print("⚠️  Could not create backup")
             
             # Atomic move from temp to final location
             shutil.move(temp_path, self.output_path)

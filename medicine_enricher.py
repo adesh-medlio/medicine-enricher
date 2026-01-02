@@ -15,6 +15,9 @@ import os
 import tempfile
 import shutil
 from datetime import datetime
+from smart_backup_manager import SmartBackupManager
+import shutil
+from datetime import datetime
 import signal
 import sys
 
@@ -25,9 +28,10 @@ logger = logging.getLogger(__name__)
 class SafeExcelSaver:
     """Corruption-proof Excel file saver"""
     
-    def __init__(self, output_path):
+    def __init__(self, output_path, max_backups=3):
         self.output_path = output_path
         self.temp_dir = tempfile.mkdtemp()
+        self.backup_manager = SmartBackupManager(max_backups)
         
     def safe_save(self, df, progress_count=None):
         """
@@ -56,15 +60,13 @@ class SafeExcelSaver:
                 logger.error(f"❌ Temporary file validation failed: {e}")
                 return False
             
-            # Create timestamped backup of existing file if it exists
+            # Create smart backup of existing file if it exists (auto-cleanup old backups)
             if os.path.exists(self.output_path):
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup_path = self.output_path.replace('.xlsx', f'_backup_{timestamp}.xlsx')
-                try:
-                    shutil.copy2(self.output_path, backup_path)
-                    logger.info(f"📁 Previous version backed up: {os.path.basename(backup_path)}")
-                except Exception as e:
-                    logger.warning(f"Could not create backup: {e}")
+                backup_path = self.backup_manager.create_backup_with_cleanup(self.output_path)
+                if backup_path:
+                    logger.info(f"📁 Smart backup created: {os.path.basename(backup_path)}")
+                else:
+                    logger.warning("Could not create backup")
             
             # Atomic move from temp to final location (this prevents corruption)
             shutil.move(temp_path, self.output_path)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Run enhanced medicine enricher with custom file path + Auto Backup Cleanup
+Automatically cleans backup files while enricher is running
 """
 
 import os
@@ -31,6 +32,8 @@ class BackupCleaner:
     def stop_cleanup(self):
         """Stop the cleanup thread."""
         self.running = False
+        if self.thread:
+            self.thread.join(timeout=5)
         
     def _cleanup_loop(self):
         """Main cleanup loop running in background."""
@@ -40,20 +43,23 @@ class BackupCleaner:
                 time.sleep(self.cleanup_interval)
             except Exception as e:
                 print(f"⚠️  Cleanup error: {e}")
-                time.sleep(60)
+                time.sleep(60)  # Wait 1 minute before retrying
                 
     def _perform_cleanup(self):
         """Perform the actual cleanup."""
         try:
+            # Change to target directory for cleanup
             original_dir = os.getcwd()
             os.chdir(self.target_directory)
             
+            # Find backup files
             backup_files = glob.glob("*_backup_*.xlsx")
             emergency_files = glob.glob("*_emergency_*.xlsx")
             
             if not backup_files and not emergency_files:
                 return
             
+            # Group backup files by base name
             backup_groups = {}
             for backup_file in backup_files:
                 base_name = backup_file.split('_backup_')[0]
@@ -63,18 +69,23 @@ class BackupCleaner:
             
             deleted_count = 0
             
+            # Clean up each group
             for base_name, files in backup_groups.items():
                 if len(files) > self.max_backups:
+                    # Sort by modification time (newest first)
                     files.sort(key=os.path.getmtime, reverse=True)
+                    
+                    # Delete old backups
                     files_to_delete = files[self.max_backups:]
                     for file_to_delete in files_to_delete:
                         try:
                             os.remove(file_to_delete)
                             deleted_count += 1
-                            print(f"🗑️  Auto-deleted: {file_to_delete}")
-                        except:
-                            pass
+                            print(f"🗑️  Auto-deleted old backup: {file_to_delete}")
+                        except Exception as e:
+                            print(f"⚠️  Could not delete {file_to_delete}: {e}")
             
+            # Delete emergency files older than 30 minutes
             for emergency_file in emergency_files:
                 try:
                     file_age = time.time() - os.path.getmtime(emergency_file)
@@ -82,8 +93,8 @@ class BackupCleaner:
                         os.remove(emergency_file)
                         deleted_count += 1
                         print(f"🗑️  Auto-deleted old emergency: {emergency_file}")
-                except:
-                    pass
+                except Exception as e:
+                    print(f"⚠️  Could not delete {emergency_file}: {e}")
             
             if deleted_count > 0:
                 remaining = len(glob.glob("*_backup_*.xlsx")) + len(glob.glob("*_emergency_*.xlsx"))
@@ -92,6 +103,7 @@ class BackupCleaner:
         except Exception as e:
             print(f"❌ Cleanup error: {e}")
         finally:
+            # Return to original directory
             try:
                 os.chdir(original_dir)
             except:
